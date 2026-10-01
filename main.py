@@ -13,6 +13,7 @@ from .matcher import WakeWordMatcher
 
 _MATCHED_WORD_EXTRA_KEY = "astrbot_plugin_simple_reply.matched_wake_word"
 _TRIGGER_TYPE_EXTRA_KEY = "astrbot_plugin_simple_reply.trigger_type"
+_REPLY_EMOJI_ATTEMPTED_EXTRA_KEY = "astrbot_plugin_simple_reply.reply_emoji_attempted"
 _TRIGGER_WAKE_WORD = "wake_word"
 _TRIGGER_MENTION_KEYWORD = "mention_keyword"
 
@@ -235,6 +236,31 @@ class SimpleReplyPlugin(Star):
         event.is_at_or_wake_command = True
         logger.debug("宽松唤醒词命中：%s", matched_word)
 
+    @filter.on_waiting_llm_request()
+    async def react_for_native_wake(self, event: AstrMessageEvent) -> None:
+        """React to native wake paths that do not contain a configured word.
+
+        AstrBot's native waking stage marks @ mentions, replies to the bot,
+        the native wake prefix, and automatically handled private messages
+        with ``is_at_or_wake_command``.  Those messages can reach the main LLM
+        without passing this plugin's custom filter, so this waiting hook is
+        the earliest common point at which we can acknowledge them with a
+        reaction.
+        """
+
+        if not event.is_at_or_wake_command:
+            return
+
+        if not self.reply_emoji_enabled:
+            return
+
+        if event.get_extra(_REPLY_EMOJI_ATTEMPTED_EXTRA_KEY, False):
+            logger.debug("原生 @/引用/唤醒/私聊事件已由其他路径尝试回复前表情，跳过重复调用")
+            return
+
+        logger.info("检测到原生 @/引用/唤醒/私聊触发，准备在主 LLM 前添加表情回应")
+        await self._send_reply_emoji(event, "原生 @/引用/唤醒/私聊")
+
     async def _send_reply_emoji(
         self,
         event: AstrMessageEvent,
@@ -244,6 +270,14 @@ class SimpleReplyPlugin(Star):
 
         if not self.reply_emoji_enabled:
             return
+
+        # The custom wake filter and the native waiting hook can both observe
+        # the same event.  Mark the attempt before any adapter call so a
+        # failure is not retried later and never causes duplicate reactions.
+        if event.get_extra(_REPLY_EMOJI_ATTEMPTED_EXTRA_KEY, False):
+            logger.debug("本条消息已尝试回复前表情回应，跳过重复调用")
+            return
+        event.set_extra(_REPLY_EMOJI_ATTEMPTED_EXTRA_KEY, True)
 
         if event.get_platform_name() != "aiocqhttp":
             logger.info(

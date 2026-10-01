@@ -38,12 +38,14 @@ class FakeContext:
     def __init__(self, response: str = '{"reply": true}') -> None:
         self.response = response
         self.calls = 0
+        self.last_kwargs = None
 
     async def get_current_chat_provider_id(self, umo: str) -> str:
         return "current-provider"
 
     async def llm_generate(self, **kwargs):
         self.calls += 1
+        self.last_kwargs = kwargs
         return FakeResponse(self.response)
 
 
@@ -77,3 +79,21 @@ class IntentJudgeCallTests(unittest.TestCase):
 
         self.assertTrue(result)
         self.assertEqual(context.calls, 1)
+
+    def test_prompt_accepts_direct_online_check_without_task_word(self) -> None:
+        context = FakeContext('{"reply": true}')
+        judge = MentionIntentJudge(context, provider_id="small-model")
+
+        result = asyncio.run(
+            judge.should_reply(
+                event=FakeEvent(),
+                message="在吗姬姬？",
+                matched_keyword="姬姬",
+            ),
+        )
+
+        self.assertTrue(result)
+        self.assertIsNotNone(context.last_kwargs)
+        system_prompt = context.last_kwargs["system_prompt"]
+        self.assertIn("在吗{keyword}", system_prompt)
+        self.assertIn("不要求用户一定提出具体任务", system_prompt)

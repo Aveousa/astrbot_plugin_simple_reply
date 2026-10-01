@@ -53,7 +53,7 @@
     "type": "bool",
     "default": false,
     "description": "启用回复前的原生表情回应",
-    "hint": "仅对支持 set_msg_emoji_like 扩展的 aiocqhttp/OneBot 实现生效。"
+    "hint": "仅对支持 set_msg_emoji_like 扩展的 aiocqhttp/OneBot 实现生效；插件唤醒词、原生 @、引用、原生唤醒前缀和自动回复私聊都会尝试添加。"
   },
   "reply_emoji_id": {
     "type": "int",
