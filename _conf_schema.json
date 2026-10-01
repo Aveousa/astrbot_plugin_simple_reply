@@ -48,5 +48,17 @@
       "max": 15,
       "step": 1
     }
+  },
+  "enable_reply_emoji": {
+    "type": "bool",
+    "default": false,
+    "description": "启用回复后的原生表情回应",
+    "hint": "仅对支持 set_msg_emoji_like 扩展的 aiocqhttp/OneBot 实现生效。"
+  },
+  "reply_emoji_id": {
+    "type": "int",
+    "default": 307,
+    "description": "回复表情 emoji_id",
+    "hint": "默认 307（喵喵）；具体编号取决于 OneBot 实现。"
   }
 }

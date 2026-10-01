@@ -15,6 +15,7 @@ _MATCHED_WORD_EXTRA_KEY = "astrbot_plugin_simple_reply.matched_wake_word"
 _TRIGGER_TYPE_EXTRA_KEY = "astrbot_plugin_simple_reply.trigger_type"
 _TRIGGER_WAKE_WORD = "wake_word"
 _TRIGGER_MENTION_KEYWORD = "mention_keyword"
+_REACTION_PENDING_EXTRA_KEY = "astrbot_plugin_simple_reply.reply_emoji_pending"
 
 
 class LooseWakeWordFilter(CustomFilter):
@@ -149,6 +150,8 @@ class SimpleReplyPlugin(Star):
             provider_id=self._get_provider_id(config),
             timeout_seconds=self._get_timeout(config),
         )
+        self.reply_emoji_enabled = bool(config.get("enable_reply_emoji", False))
+        self.reply_emoji_id = self._get_reply_emoji_id(config)
 
     @staticmethod
     def _get_provider_id(config: AstrBotConfig) -> str:
@@ -162,6 +165,15 @@ class SimpleReplyPlugin(Star):
             return float(timeout)
         except (TypeError, ValueError):
             return 3.0
+
+    @staticmethod
+    def _get_reply_emoji_id(config: AstrBotConfig) -> int:
+        emoji_id = config.get("reply_emoji_id", 307)
+        try:
+            emoji_id = int(emoji_id)
+        except (TypeError, ValueError):
+            return 307
+        return emoji_id if emoji_id > 0 else 307
 
     @filter.custom_filter(LooseWakeWordFilter)
     async def loose_wake(self, event: AstrMessageEvent) -> None:
@@ -216,9 +228,66 @@ class SimpleReplyPlugin(Star):
         # WakingCheckStage already sets is_wake when this filter passes. Setting
         # both flags explicitly also documents the contract and keeps the
         # handler robust if the internal stage behavior changes.
+        if self.reply_emoji_enabled:
+            # The response hook runs only after AstrBot has actually sent a
+            # response. Keeping this marker on the event avoids reacting to
+            # unrelated messages handled by other plugins.
+            event.set_extra(_REACTION_PENDING_EXTRA_KEY, True)
         event.is_wake = True
         event.is_at_or_wake_command = True
         logger.debug("宽松唤醒词命中：%s", matched_word)
+
+    @filter.after_message_sent()
+    async def react_to_replied_message(self, event: AstrMessageEvent) -> None:
+        """Add a native OneBot emoji reaction after a reply is sent."""
+
+        if not self.reply_emoji_enabled or not event.get_extra(
+            _REACTION_PENDING_EXTRA_KEY,
+            False,
+        ):
+            return
+
+        if event.get_platform_name() != "aiocqhttp":
+            logger.info(
+                "已发送回复，但当前平台不是 aiocqhttp，跳过原生表情回应：%s",
+                event.get_platform_name(),
+            )
+            return
+
+        bot = getattr(event, "bot", None)
+        message_id = getattr(event.message_obj, "message_id", None)
+        try:
+            message_id = int(message_id)
+        except (TypeError, ValueError):
+            message_id = None
+
+        if bot is None or message_id is None:
+            logger.warning("无法取得 aiocqhttp Bot 或原消息 ID，跳过原生表情回应")
+            return
+
+        try:
+            await bot.call_action(
+                "set_msg_emoji_like",
+                message_id=message_id,
+                emoji_id=str(self.reply_emoji_id),
+                set=True,
+            )
+        except Exception as exc:
+            # Reaction support is an optional adapter extension; it must not
+            # turn a successfully delivered LLM reply into a failed event.
+            logger.warning(
+                "原生表情回应发送失败（message_id=%s, emoji_id=%s）：%s",
+                message_id,
+                self.reply_emoji_id,
+                exc,
+            )
+            return
+
+        logger.info(
+            "已为原消息添加原生表情回应（message_id=%s, emoji_id=%s）",
+            message_id,
+            self.reply_emoji_id,
+        )
 
     async def terminate(self) -> None:
         """Reset matcher state when the plugin is unloaded."""
