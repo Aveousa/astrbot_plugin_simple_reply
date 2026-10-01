@@ -30,6 +30,12 @@ class WakeWordMatcherTests(unittest.TestCase):
 
         self.assertFalse(matcher.matches("任意消息"))
 
+    def test_finds_word_at_start_after_whitespace(self) -> None:
+        matcher = WakeWordMatcher(["AstrBot"])
+
+        self.assertEqual(matcher.find_at_start("  astrbot，请回答"), "AstrBot")
+        self.assertIsNone(matcher.find_at_start("请问 astrbot 能回答吗"))
+
 
 if __name__ == "__main__":
     unittest.main()

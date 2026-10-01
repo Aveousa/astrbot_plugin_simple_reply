@@ -15,5 +15,38 @@
     "default": false,
     "description": "区分大小写",
     "hint": "关闭时，AstrBot、astrbot 等写法会被视为同一个唤醒词。"
+  },
+  "mention_keywords": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "群聊提及关键词",
+    "hint": "仅群聊生效。消息包含任一关键词时，先交给意图判断模型确认是否在叫机器人。"
+  },
+  "enable_intent_judge": {
+    "type": "bool",
+    "default": false,
+    "description": "启用群聊意图判断",
+    "hint": "启用后，群聊中的提及关键词会先经过对话模型判断，旁观讨论、复述、玩笑和明确无需回复的消息会被过滤。"
+  },
+  "intent_judge_provider": {
+    "type": "string",
+    "default": "",
+    "description": "意图判断模型",
+    "hint": "可选择一个对话模型提供商；留空时使用当前会话的对话模型。",
+    "_special": "select_provider"
+  },
+  "intent_judge_timeout": {
+    "type": "int",
+    "default": 3,
+    "description": "意图判断超时（秒）",
+    "hint": "模型调用超过该时间会放弃本条消息，建议设置为 1 到 5 秒。",
+    "slider": {
+      "min": 1,
+      "max": 15,
+      "step": 1
+    }
   }
 }

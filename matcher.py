@@ -54,3 +54,26 @@ class WakeWordMatcher:
         """Return whether ``message`` contains a configured wake word."""
 
         return self.find(message) is not None
+
+    def find_at_start(self, message: str) -> str | None:
+        """Return the first configured word at the start of ``message``."""
+
+        if not isinstance(message, str) or not message or not self.wake_words:
+            return None
+
+        message = message.lstrip()
+        if self.case_sensitive:
+            return next(
+                (word for word in self.wake_words if message.startswith(word)),
+                None,
+            )
+
+        folded_message = message.casefold()
+        return next(
+            (
+                word
+                for word in self.wake_words
+                if folded_message.startswith(word.casefold())
+            ),
+            None,
+        )
