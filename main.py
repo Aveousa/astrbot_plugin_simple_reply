@@ -229,17 +229,17 @@ class SimpleReplyPlugin(Star):
         # both flags explicitly also documents the contract and keeps the
         # handler robust if the internal stage behavior changes.
         if self.reply_emoji_enabled:
-            # The response hook runs only after AstrBot has actually sent a
-            # response. Keeping this marker on the event avoids reacting to
-            # unrelated messages handled by other plugins.
+            # The decorating-result hook runs only when AstrBot has a
+            # non-empty response result. Keeping this marker on the event
+            # avoids reacting to unrelated messages handled by other plugins.
             event.set_extra(_REACTION_PENDING_EXTRA_KEY, True)
         event.is_wake = True
         event.is_at_or_wake_command = True
         logger.debug("宽松唤醒词命中：%s", matched_word)
 
-    @filter.after_message_sent()
-    async def react_to_replied_message(self, event: AstrMessageEvent) -> None:
-        """Add a native OneBot emoji reaction after a reply is sent."""
+    @filter.on_decorating_result()
+    async def react_before_replied_message(self, event: AstrMessageEvent) -> None:
+        """Add a native OneBot emoji reaction immediately before the reply."""
 
         if not self.reply_emoji_enabled or not event.get_extra(
             _REACTION_PENDING_EXTRA_KEY,
@@ -249,7 +249,7 @@ class SimpleReplyPlugin(Star):
 
         if event.get_platform_name() != "aiocqhttp":
             logger.info(
-                "已发送回复，但当前平台不是 aiocqhttp，跳过原生表情回应：%s",
+                "当前平台不是 aiocqhttp，跳过回复前原生表情回应：%s",
                 event.get_platform_name(),
             )
             return
@@ -262,7 +262,7 @@ class SimpleReplyPlugin(Star):
             message_id = None
 
         if bot is None or message_id is None:
-            logger.warning("无法取得 aiocqhttp Bot 或原消息 ID，跳过原生表情回应")
+            logger.warning("无法取得 aiocqhttp Bot 或原消息 ID，跳过回复前原生表情回应")
             return
 
         try:
@@ -276,7 +276,7 @@ class SimpleReplyPlugin(Star):
             # Reaction support is an optional adapter extension; it must not
             # turn a successfully delivered LLM reply into a failed event.
             logger.warning(
-                "原生表情回应发送失败（message_id=%s, emoji_id=%s）：%s",
+                "回复前原生表情回应发送失败（message_id=%s, emoji_id=%s）：%s",
                 message_id,
                 self.reply_emoji_id,
                 exc,
@@ -284,7 +284,7 @@ class SimpleReplyPlugin(Star):
             return
 
         logger.info(
-            "已为原消息添加原生表情回应（message_id=%s, emoji_id=%s）",
+            "已在发送回复正文前为原消息添加原生表情回应（message_id=%s, emoji_id=%s）",
             message_id,
             self.reply_emoji_id,
         )
