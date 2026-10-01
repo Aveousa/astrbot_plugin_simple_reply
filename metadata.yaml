@@ -1,0 +1,7 @@
+name: astrbot_plugin_simple_reply
+display_name: 宽松唤醒词
+desc: 当消息任意位置包含可配置的唤醒词时，触发 AstrBot 的正常 LLM 回复流程。
+version: v0.1.0
+author: Aveousa
+repo: https://github.com/Aveousa/astrbot_plugin_simple_reply
+astrbot_version: ">=4.26.5,<5"

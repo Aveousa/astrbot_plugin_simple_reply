@@ -1,0 +1,19 @@
+{
+  "wake_words": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [
+      "AstrBot"
+    ],
+    "description": "宽松唤醒词",
+    "hint": "消息任意位置包含列表中的任一词语时，触发 AstrBot 的正常 LLM 回复流程。空白项会被忽略。"
+  },
+  "case_sensitive": {
+    "type": "bool",
+    "default": false,
+    "description": "区分大小写",
+    "hint": "关闭时，AstrBot、astrbot 等写法会被视为同一个唤醒词。"
+  }
+}
