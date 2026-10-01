@@ -95,5 +95,14 @@ class IntentJudgeCallTests(unittest.TestCase):
         self.assertTrue(result)
         self.assertIsNotNone(context.last_kwargs)
         system_prompt = context.last_kwargs["system_prompt"]
-        self.assertIn("在吗{keyword}", system_prompt)
-        self.assertIn("不要求用户一定提出具体任务", system_prompt)
+        self.assertIn("在吗<关键词>", system_prompt)
+        self.assertIn("不要求出现", system_prompt)
+        self.assertNotIn("{keyword}", system_prompt)
+        self.assertEqual(context.last_kwargs["max_tokens"], 64)
+
+    def test_max_output_tokens_are_clamped(self) -> None:
+        low = MentionIntentJudge(FakeContext(), max_output_tokens=1)
+        high = MentionIntentJudge(FakeContext(), max_output_tokens=9999)
+
+        self.assertEqual(low.max_output_tokens, 16)
+        self.assertEqual(high.max_output_tokens, 512)

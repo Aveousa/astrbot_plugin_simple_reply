@@ -49,6 +49,17 @@
       "step": 1
     }
   },
+  "intent_judge_max_tokens": {
+    "type": "int",
+    "default": 64,
+    "description": "意图判断最大输出 token",
+    "hint": "意图判断只需返回 JSON；数值过小可能导致带思考过程的模型来不及输出结果。",
+    "slider": {
+      "min": 16,
+      "max": 512,
+      "step": 16
+    }
+  },
   "enable_reply_emoji": {
     "type": "bool",
     "default": false,

@@ -26,6 +26,7 @@ https://github.com/Aveousa/astrbot_plugin_simple_reply
 - `启用群聊意图判断`：默认关闭。开启后，提及关键词不会直接触发主 LLM，而是先由判断模型筛选。
 - `意图判断模型`：可选择模型提供商；留空时使用当前会话的对话模型。
 - `意图判断超时（秒）`：默认 3 秒。超时或模型调用失败时，本条消息不回复。
+- `意图判断最大输出 token`：默认 64。判断模型只需返回 JSON；带思考过程的模型可适当调大。
 
 保存配置并按管理面板提示重载插件后生效。空字符串和只含空白字符的配置项会被自动忽略；当列表为空时，插件不会额外唤醒任何消息。
 
@@ -43,7 +44,8 @@ https://github.com/Aveousa/astrbot_plugin_simple_reply
   "mention_keywords": ["娅娅"],
   "enable_intent_judge": true,
   "intent_judge_provider": "你选择的对话模型提供商 ID",
-  "intent_judge_timeout": 3
+  "intent_judge_timeout": 3,
+  "intent_judge_max_tokens": 64
 }
 ```
 

@@ -149,6 +149,7 @@ class SimpleReplyPlugin(Star):
             context,
             provider_id=self._get_provider_id(config),
             timeout_seconds=self._get_timeout(config),
+            max_output_tokens=self._get_max_output_tokens(config),
         )
         self.reply_emoji_enabled = bool(config.get("enable_reply_emoji", False))
         self.reply_emoji_id = self._get_reply_emoji_id(config)
@@ -165,6 +166,14 @@ class SimpleReplyPlugin(Star):
             return float(timeout)
         except (TypeError, ValueError):
             return 3.0
+
+    @staticmethod
+    def _get_max_output_tokens(config: AstrBotConfig) -> int:
+        max_tokens = config.get("intent_judge_max_tokens", 64)
+        try:
+            return int(max_tokens)
+        except (TypeError, ValueError):
+            return 64
 
     @staticmethod
     def _get_reply_emoji_id(config: AstrBotConfig) -> int:
@@ -201,10 +210,11 @@ class SimpleReplyPlugin(Star):
                 )
             else:
                 logger.info(
-                    "开始群聊提及意图判断：关键词=%s，模型=%s，超时=%.1fs",
+                    "开始群聊提及意图判断：关键词=%s，模型=%s，超时=%.1fs，最大输出=%d tokens",
                     matched_word,
                     provider_name,
                     self.intent_judge.timeout_seconds,
+                    self.intent_judge.max_output_tokens,
                 )
             try:
                 should_reply = await self.intent_judge.should_reply(
