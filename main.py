@@ -48,6 +48,17 @@ class LooseWakeWordFilter(CustomFilter):
         del cfg  # Matching is controlled by this plugin's own configuration.
         message = event.get_message_str()
         is_group = event.get_message_type() == MessageType.GROUP_MESSAGE
+
+        # AstrBot has already confirmed native group wake signals here
+        # (@bot, reply-to-bot, or native wake prefix). Let this plugin's
+        # handler run even without one of our configured words, so its
+        # pre-LLM reaction path can acknowledge the same native reply.
+        if is_group and event.is_at_or_wake_command:
+            logger.info("检测到 AstrBot 原生群聊唤醒标记（@/引用/唤醒前缀），交由原生回复并附加插件前置处理")
+            event.set_extra(_TRIGGER_TYPE_EXTRA_KEY, _TRIGGER_WAKE_WORD)
+            event.set_extra(_MATCHED_WORD_EXTRA_KEY, "AstrBot 原生群聊唤醒")
+            return True
+
         wake_word = self._wake_matcher.find(message)
         mention_keyword = (
             self._mention_matcher.find(message)
