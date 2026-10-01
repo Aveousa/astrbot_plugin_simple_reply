@@ -1,0 +1,2 @@
+# astrbot_plugin_simple_reply
+简易的宽松唤醒词匹配回复插件
