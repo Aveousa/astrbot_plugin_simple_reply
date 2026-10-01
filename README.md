@@ -68,7 +68,7 @@ MIT
 
 ## 回复表情（aiocqhttp / OneBot）
 
-可通过 `enable_reply_emoji` 开关控制是否在 AstrBot 确定有回复、发送回复正文之前，为原消息添加 QQ 原生表情回应。默认关闭。
+可通过 `enable_reply_emoji` 开关控制是否在 AstrBot 确定有回复、进入主 LLM（以及可能的识图模型）之前，为原消息添加 QQ 原生表情回应。默认关闭。
 
 `reply_emoji_id` 用于自定义表情编号，默认值为 `307`（喵喵）。该功能依赖 OneBot 实现提供的 `set_msg_emoji_like` 扩展接口；不支持该接口时只会记录警告，不影响正常回复。
 

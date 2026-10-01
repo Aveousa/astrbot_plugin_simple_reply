@@ -15,7 +15,6 @@ _MATCHED_WORD_EXTRA_KEY = "astrbot_plugin_simple_reply.matched_wake_word"
 _TRIGGER_TYPE_EXTRA_KEY = "astrbot_plugin_simple_reply.trigger_type"
 _TRIGGER_WAKE_WORD = "wake_word"
 _TRIGGER_MENTION_KEYWORD = "mention_keyword"
-_REACTION_PENDING_EXTRA_KEY = "astrbot_plugin_simple_reply.reply_emoji_pending"
 
 
 class LooseWakeWordFilter(CustomFilter):
@@ -228,23 +227,22 @@ class SimpleReplyPlugin(Star):
         # WakingCheckStage already sets is_wake when this filter passes. Setting
         # both flags explicitly also documents the contract and keeps the
         # handler robust if the internal stage behavior changes.
-        if self.reply_emoji_enabled:
-            # The decorating-result hook runs only when AstrBot has a
-            # non-empty response result. Keeping this marker on the event
-            # avoids reacting to unrelated messages handled by other plugins.
-            event.set_extra(_REACTION_PENDING_EXTRA_KEY, True)
+        # At this point a leading/direct wake-word match or a positive intent
+        # decision has already established that the bot should respond. Add
+        # the reaction now, before the main LLM (and any vision model) starts.
+        await self._send_reply_emoji(event, matched_word)
         event.is_wake = True
         event.is_at_or_wake_command = True
         logger.debug("宽松唤醒词命中：%s", matched_word)
 
-    @filter.on_decorating_result()
-    async def react_before_replied_message(self, event: AstrMessageEvent) -> None:
-        """Add a native OneBot emoji reaction immediately before the reply."""
+    async def _send_reply_emoji(
+        self,
+        event: AstrMessageEvent,
+        matched_word: str,
+    ) -> None:
+        """React immediately after a reply decision, before the main LLM."""
 
-        if not self.reply_emoji_enabled or not event.get_extra(
-            _REACTION_PENDING_EXTRA_KEY,
-            False,
-        ):
+        if not self.reply_emoji_enabled:
             return
 
         if event.get_platform_name() != "aiocqhttp":
@@ -284,7 +282,8 @@ class SimpleReplyPlugin(Star):
             return
 
         logger.info(
-            "已在发送回复正文前为原消息添加原生表情回应（message_id=%s, emoji_id=%s）",
+            "已在进入主 LLM 前为原消息添加原生表情回应（matched_word=%s, message_id=%s, emoji_id=%s）",
+            matched_word,
             message_id,
             self.reply_emoji_id,
         )
