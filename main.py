@@ -8,7 +8,7 @@ from astrbot.api.event.filter import CustomFilter
 from astrbot.api.star import Context, Star
 from astrbot.core.platform.message_type import MessageType
 
-from .intent_judge import MentionIntentJudge
+from .intent_judge import MentionIntentJudge, contains_explicit_no_reply
 from .matcher import WakeWordMatcher
 
 _MATCHED_WORD_EXTRA_KEY = "astrbot_plugin_simple_reply.matched_wake_word"
@@ -62,7 +62,21 @@ class LooseWakeWordFilter(CustomFilter):
         # not incur the extra classifier call, even when the same word also
         # appears in mention_keywords.
         leading_word = leading_wake_word or leading_mention_keyword
+        if wake_word is not None:
+            logger.info(
+                "检测到唤醒词：%s（位置：%s）",
+                wake_word,
+                "句首" if leading_wake_word is not None else "句中",
+            )
+        if mention_keyword is not None:
+            logger.info(
+                "检测到群聊提及关键词：%s（位置：%s）",
+                mention_keyword,
+                "句首" if leading_mention_keyword is not None else "句中",
+            )
+
         if leading_word is not None:
+            logger.info("句首命中，直接进入 AstrBot 原生唤醒处理链：%s", leading_word)
             event.set_extra(_TRIGGER_TYPE_EXTRA_KEY, _TRIGGER_WAKE_WORD)
             event.set_extra(_MATCHED_WORD_EXTRA_KEY, leading_word)
             return True
@@ -79,10 +93,22 @@ class LooseWakeWordFilter(CustomFilter):
             or not self._intent_judge_enabled
             or not is_group
         ):
+            if event.is_at_or_wake_command:
+                direct_reason = "原生 @/唤醒前缀"
+            elif not self._intent_judge_enabled:
+                direct_reason = "未启用意图判断"
+            else:
+                direct_reason = "非群聊"
+            logger.info(
+                "句中命中后直接进入 AstrBot 原生唤醒处理链：%s（原因：%s）",
+                matched_word,
+                direct_reason,
+            )
             event.set_extra(_TRIGGER_TYPE_EXTRA_KEY, _TRIGGER_WAKE_WORD)
             event.set_extra(_MATCHED_WORD_EXTRA_KEY, matched_word)
             return True
 
+        logger.info("群聊句中命中，进入意图判断：%s", matched_word)
         event.set_extra(_TRIGGER_TYPE_EXTRA_KEY, _TRIGGER_MENTION_KEYWORD)
         event.set_extra(_MATCHED_WORD_EXTRA_KEY, matched_word)
         return True
@@ -151,6 +177,23 @@ class SimpleReplyPlugin(Star):
             trigger_type == _TRIGGER_MENTION_KEYWORD
             and not event.is_at_or_wake_command
         ):
+            provider_name = (
+                self.intent_judge.provider_id
+                or "当前会话对话模型"
+            )
+            explicit_no_reply = contains_explicit_no_reply(event.get_message_str())
+            if explicit_no_reply:
+                logger.info(
+                    "检测到明确无需回复表达，跳过意图判断模型：%s",
+                    matched_word,
+                )
+            else:
+                logger.info(
+                    "开始群聊提及意图判断：关键词=%s，模型=%s，超时=%.1fs",
+                    matched_word,
+                    provider_name,
+                    self.intent_judge.timeout_seconds,
+                )
             try:
                 should_reply = await self.intent_judge.should_reply(
                     event=event,
@@ -165,8 +208,10 @@ class SimpleReplyPlugin(Star):
                 return
 
             if not should_reply:
-                logger.debug("群聊提及被判断为无需回复：%s", matched_word)
+                logger.info("意图判断结果：无需回复：%s", matched_word)
                 return
+
+            logger.info("意图判断结果：需要回复，进入主 LLM：%s", matched_word)
 
         # WakingCheckStage already sets is_wake when this filter passes. Setting
         # both flags explicitly also documents the contract and keeps the
