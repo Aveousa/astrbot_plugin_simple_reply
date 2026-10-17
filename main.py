@@ -9,7 +9,7 @@ from astrbot.api.star import Context, Star
 from astrbot.core.platform.message_type import MessageType
 
 from .intent_judge import MentionIntentJudge, contains_explicit_no_reply
-from .matcher import WakeWordMatcher
+from .matcher import WakeWordMatcher, message_text_without_at_mentions
 
 _MATCHED_WORD_EXTRA_KEY = "astrbot_plugin_simple_reply.matched_wake_word"
 _TRIGGER_TYPE_EXTRA_KEY = "astrbot_plugin_simple_reply.trigger_type"
@@ -46,7 +46,10 @@ class LooseWakeWordFilter(CustomFilter):
 
     def filter(self, event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
         del cfg  # Matching is controlled by this plugin's own configuration.
-        message = event.get_message_str()
+        message = message_text_without_at_mentions(
+            event.get_message_str(),
+            event.get_messages(),
+        )
         is_group = event.get_message_type() == MessageType.GROUP_MESSAGE
 
         # AstrBot has already confirmed native group wake signals here

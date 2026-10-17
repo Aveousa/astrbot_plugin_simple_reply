@@ -9,6 +9,57 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 
+def message_text_without_at_mentions(
+    message: str,
+    segments: Iterable[object] | None,
+) -> str:
+    """Return text for matching without rendered names from @ segments.
+
+    Some adapters include a mentioned user's display name in ``message`` even
+    though that name is metadata on an ``At`` segment, not text the sender
+    typed. When an @ segment is present, rebuild the match text from plain
+    text segments so the target's nickname cannot accidentally wake the bot.
+    """
+
+    if not isinstance(message, str):
+        return ""
+    if segments is None:
+        return message
+
+    try:
+        components = tuple(segments)
+    except TypeError:
+        return message
+
+    mention_types = {"at", "atall"}
+    if not any(
+        _component_type_name(component) in mention_types for component in components
+    ):
+        return message
+
+    text_parts: list[str] = []
+    for component in components:
+        component_type = _component_type_name(component)
+        if component_type in mention_types:
+            # Keep a non-whitespace boundary so text on either side of an @
+            # cannot combine into a wake word, and text after a leading @ does
+            # not become a false sentence-initial (direct) wake word.
+            text_parts.append("\u200b")
+            continue
+        if component_type not in {"plain", "text"}:
+            continue
+        text = getattr(component, "text", None)
+        if isinstance(text, str):
+            text_parts.append(text)
+    return "".join(text_parts)
+
+
+def _component_type_name(component: object) -> str:
+    component_type = getattr(component, "type", None)
+    component_type = getattr(component_type, "value", component_type)
+    return component_type.casefold() if isinstance(component_type, str) else ""
+
+
 class WakeWordMatcher:
     """Match configured wake words anywhere in a message."""
 
